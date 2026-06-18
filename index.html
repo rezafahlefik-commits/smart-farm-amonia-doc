@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMART FARM - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Desain scrollbar tipis untuk area tabel log data */
+        .custom-scroll::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans p-4 md:p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <div class="bg-white p-5 rounded-2xl shadow-sm mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 border-b-4 border-emerald-500">
+            <div>
+                <h1 class="text-3xl font-black text-slate-800 tracking-tight">Smart Farm</h1>
+                <p class="text-sm text-slate-500 font-semibold mt-1">Monitoring dan Kontrol Gas Amonia pada Kandang DOC</p>
+            </div>
+            <div class="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2">
+                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
+                Sistem Terkoneksi Express & SQLite Lokal
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-center">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mode Sistem</h3>
+                <p id="txtModeSistem" class="text-2xl font-black my-2 text-blue-600">---</p>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-600">Hardware</span>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-center">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status Fan</h3>
+                <p id="txtModeFan" class="text-2xl font-black my-2 text-amber-600">---</p>
+                <span id="badgeFan" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500">Mengecek</span>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-center col-span-2 sm:col-span-1">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kadar NH₃</h3>
+                <p id="txtNH3" class="text-3xl font-black my-1 text-rose-500">0.0</p>
+                <span class="text-[10px] text-slate-400 font-medium">PPM</span>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-center">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kelembapan</h3>
+                <p id="txtKelembapan" class="text-3xl font-black my-1 text-cyan-500">0.0</p>
+                <span class="text-[10px] text-slate-400 font-medium">% RH</span>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-center">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Suhu</h3>
+                <p id="txtSuhu" class="text-3xl font-black my-1 text-orange-500">0.0</p>
+                <span class="text-[10px] text-slate-400 font-medium">°C</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div class="xl:col-span-2 bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                <h2 class="text-lg font-bold text-slate-800 mb-2">Grafik Tren Sensor (Semua Hari)</h2>
+                <div class="relative w-full h-80">
+                    <canvas id="historyChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex flex-col h-[390px] xl:h-auto">
+                <div class="mb-3">
+                    <h2 class="text-xl font-extrabold text-slate-800">Riwayat Logs</h2>
+                    <p class="text-[11px] text-slate-400">Data bersumber langsung dari Database SQLite Lokal</p>
+                </div>
+
+                <div class="flex space-x-1 bg-slate-200 p-1 rounded-lg mb-3 text-xs font-bold">
+                    <button id="btn-day1" onclick="switchDay('day1')" class="flex-1 py-1.5 rounded-md text-center bg-white text-emerald-700 shadow-sm transition">Day 1</button>
+                    <button id="btn-day2" onclick="switchDay('day2')" class="flex-1 py-1.5 rounded-md text-center text-slate-600 hover:text-slate-800 transition">Day 2</button>
+                    <button id="btn-day3" onclick="switchDay('day3')" class="flex-1 py-1.5 rounded-md text-center text-slate-600 hover:text-slate-800 transition">Day 3</button>
+                </div>
+                
+                <div class="overflow-y-auto border border-slate-200 rounded-lg flex-grow shadow-inner h-[245px] custom-scroll">
+                    <table class="w-full table-fixed text-[11px] text-left text-slate-700 font-mono">
+                        <thead class="text-[10px] uppercase bg-emerald-600 text-white sticky top-0 font-sans z-10">
+                            <tr>
+                                <th class="w-[24%] px-2 py-2 border-r border-emerald-700 text-center">Tanggal</th>
+                                <th class="w-[14%] px-1 py-2 border-r border-emerald-700 text-center">Jam</th>
+                                <th class="w-[14%] px-1 py-2 border-r border-emerald-700 text-center">Suhu</th>
+                                <th class="w-[12%] px-1 py-2 border-r border-emerald-700 text-center">Hum</th>
+                                <th class="w-[12%] px-1 py-2 border-r border-emerald-700 text-center">NH3</th>
+                                <th class="w-[12%] px-1 py-2 border-r border-emerald-700 text-center">Mode</th>
+                                <th class="w-[12%] px-1 py-2 text-center">Fan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td colspan="7" class="text-center py-8 text-slate-400 font-sans">Memuat log database...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:5000/api";
+
+        let historyChart = null;
+        let allLogsData = []; 
+        let currentActiveDay = "day1"; 
+
+        // 1. Sinkronisasi Data Widget Atas (Setiap 2 Detik)
+        async function loadStatus() {
+            try {
+                const res = await fetch(`${API_URL}/status`);
+                const data = await res.json();
+                
+                document.getElementById('txtModeSistem').innerText = data.mode_sistem || "AUTO";
+                document.getElementById('txtModeFan').innerText = data.mode_fan || "OFF";
+                document.getElementById('txtNH3').innerText = parseFloat(data.nh3).toFixed(1);
+                document.getElementById('txtKelembapan').innerText = parseFloat(data.kelembapan).toFixed(0);
+                document.getElementById('txtSuhu').innerText = parseFloat(data.suhu).toFixed(1);
+
+                const badgeFan = document.getElementById('badgeFan');
+                if (data.mode_fan === "ON") {
+                    badgeFan.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-green-100 text-green-700";
+                    badgeFan.innerText = "FAN AKTIF";
+                } else {
+                    badgeFan.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500";
+                    badgeFan.innerText = "FAN MATI";
+                }
+            } catch (error) {
+                console.error("Gagal load status real-time:", error);
+            }
+        }
+
+        // 2. Ambil Histori Log dari Database (Setiap 10 Detik)
+        async function loadHistoryData() {
+            try {
+                const res = await fetch(`${API_URL}/history`);
+                allLogsData = await res.json();
+                
+                renderTable();
+                renderChart();
+            } catch (error) {
+                console.error("Gagal load data histori database:", error);
+            }
+        }
+
+        // 3. Render Baris Data ke Dalam Tabel
+        function renderTable() {
+            const tableBody = document.getElementById('tableBody');
+            const filteredData = allLogsData.filter(item => item.kelompok_hari === currentActiveDay);
+
+            if(filteredData.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400 font-sans">Tidak ada rekaman data di hari ini.</td></tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = filteredData.map((item, index) => {
+                const rowBg = index % 2 === 0 ? 'bg-white' : 'bg-emerald-50/30';
+                const fanColor = item.mode_fan === 'ON' ? 'text-green-600 font-bold' : 'text-slate-500';
+                return `
+                    <tr class="${rowBg} border-b border-slate-200 hover:bg-yellow-50 transition-colors">
+                        <td class="px-1 py-1.5 border-r border-slate-200 text-center">${item.tanggal_lokal}</td>
+                        <td class="px-1 py-1.5 border-r border-slate-200 text-center">${item.jam_lokal ? item.jam_lokal.substring(0,5) : ""}</td>
+                        <td class="px-2 py-1.5 border-r border-slate-200 text-right">${parseFloat(item.suhu).toFixed(1)}°C</td>
+                        <td class="px-2 py-1.5 border-r border-slate-200 text-right">${parseFloat(item.kelembapan).toFixed(0)}%</td>
+                        <td class="px-2 py-1.5 border-r border-slate-200 text-right">${parseFloat(item.nh3).toFixed(1)}</td>
+                        <td class="px-1 py-1.5 border-r border-slate-200 text-center">${item.mode_sistem}</td>
+                        <td class="px-1 py-1.5 ${fanColor} text-center">${item.mode_fan}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 4. Render Grafik Tren Tanpa Efek Flicker (Berkedip)
+        function renderChart() {
+            const dataChart = [...allLogsData].reverse(); 
+            const labels = dataChart.map(item => item.jam_lokal ? item.jam_lokal.substring(0,5) : "");
+            const dataSuhu = dataChart.map(item => item.suhu);
+            const dataKelembapan = dataChart.map(item => item.kelembapan);
+            const dataNH3 = dataChart.map(item => item.nh3);
+
+            if (historyChart) {
+                historyChart.data.labels = labels;
+                historyChart.data.datasets[0].data = dataSuhu;
+                historyChart.data.datasets[1].data = dataKelembapan;
+                historyChart.data.datasets[2].data = dataNH3;
+                historyChart.update('none'); 
+                return;
+            }
+
+            const ctx = document.getElementById('historyChart').getContext('2d');
+            historyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Suhu (°C)', data: dataSuhu, borderColor: '#f97316', tension: 0.1, borderWidth: 2, pointRadius: 1 },
+                        { label: 'Kelembapan (%)', data: dataKelembapan, borderColor: '#06b6d4', tension: 0.1, borderWidth: 2, pointRadius: 1 },
+                        { label: 'NH3 (PPM)', data: dataNH3, borderColor: '#f43f5e', tension: 0.1, borderWidth: 2, pointRadius: 1 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: { intersect: false, mode: 'index' }
+                }
+            });
+        }
+
+        // Pengendali Perpindahan Tab Filter Hari
+        function switchDay(day) {
+            currentActiveDay = day;
+            ['day1', 'day2', 'day3'].forEach(d => {
+                const btn = document.getElementById(`btn-${d}`);
+                btn.className = "flex-1 py-1.5 rounded-md text-center text-slate-600 hover:text-slate-800 transition";
+            });
+            const activeBtn = document.getElementById(`btn-${day}`);
+            activeBtn.className = "flex-1 py-1.5 rounded-md text-center bg-white text-emerald-700 shadow-sm transition";
+            renderTable();
+        }
+
+        // Penjadwalan Pembaruan Dashboard Otomatis
+        setInterval(loadStatus, 2000);         
+        setInterval(loadHistoryData, 10000);   
+
+        // Pemanggilan data saat halaman dimuat pertama kali
+        loadStatus();
+        loadHistoryData();
+    </script>
+</body>
+</html>
