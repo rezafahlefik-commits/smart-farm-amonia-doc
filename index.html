@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Desain scrollbar tipis untuk area tabel log data */
         .custom-scroll::-webkit-scrollbar {
             width: 5px;
             height: 5px;
@@ -112,7 +111,12 @@
     </div>
 
     <script>
-        const API_URL = "http://localhost:5000/api";
+        // === KONFIGURASI API URL ===
+        // Opsi A: Alamat Server Lokal Laptop
+        const API_URL = "http://192.168.18.139:5000/api";
+        
+        // Opsi B: Alamat Cloud Server Render (Gunakan jika sudah deploy ke Render)
+        // const API_URL = "https://smartfarm-kandang-doc.onrender.com/api";
 
         let historyChart = null;
         let allLogsData = []; 
@@ -183,7 +187,7 @@
             }).join('');
         }
 
-        // 4. Render Grafik Tren Tanpa Efek Flicker (Berkedip)
+        // 4. Render Grafik Tren Tanpa Efek Flicker
         function renderChart() {
             const dataChart = [...allLogsData].reverse(); 
             const labels = dataChart.map(item => item.jam_lokal ? item.jam_lokal.substring(0,5) : "");
