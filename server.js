@@ -5,6 +5,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static('public'));
 
 // === 1. KONEKSI DATABASE ===
 const db = new sqlite3.Database('./iot_data.db', (err) => {
@@ -48,13 +49,12 @@ app.post('/api/update', (req, res) => {
     const now = Date.now();
 
     // -------------------------------------------------------------------------
-    // Skenario 1: SELALU UPDATE STATE GLOBAL (Agar Monitor Atas Web Ikut LCD Lokal)
+    // Skenario 1: SELALU UPDATE STATE GLOBAL
     // -------------------------------------------------------------------------
     if (temp !== undefined) currentState.suhu = parseFloat(temp);
     if (hum !== undefined) currentState.kelembapan = parseFloat(hum);
     if (nh3 !== undefined) currentState.nh3 = parseFloat(nh3);
 
-    // Cek apakah ada perubahan status atau mode sebelum variabel global diperbarui
     const modeBerubah = (mode && mode !== currentState.mode_sistem);
     const fanBerubah = (fan && fan !== currentState.mode_fan);
     const sudah5Menit = (now - lastLogTime >= 5 * 60 * 1000 || lastLogTime === 0);
@@ -63,12 +63,11 @@ app.post('/api/update', (req, res) => {
     if (fan !== undefined) currentState.mode_fan = fan;
 
     // -------------------------------------------------------------------------
-    // Skenario 2: KONTROL PENYIMPANAN LOG DATABASE (Agar Tidak Duplikat / Penuh)
+    // Skenario 2: KONTROL PENYIMPANAN LOG DATABASE
     // -------------------------------------------------------------------------
     let butuhSimpan = modeBerubah || fanBerubah || sudah5Menit || pemicu === "Rutin 5 Menit";
 
     if (butuhSimpan) {
-        // Otomatisasi penamaan label pemicu agar informatif di tabel riwayat
         let labelPemicu = pemicu || "Update Otomatis";
         if (modeBerubah) labelPemicu = "Perubahan Mode";
         if (fanBerubah) labelPemicu = "Perubahan Status Fan";
@@ -78,18 +77,15 @@ app.post('/api/update', (req, res) => {
         stmt.run(currentState.mode_sistem, currentState.mode_fan, currentState.nh3, currentState.kelembapan, currentState.suhu, labelPemicu);
         stmt.finalize();
 
-        // Jika dipicu oleh batas waktu, reset penanda waktu terakhir simpan
         if (sudah5Menit) {
             lastLogTime = now;
         }
 
         console.log(`[DATABASE LOG] Data disimpan! -> T: ${currentState.suhu}°C | NH3: ${currentState.nh3} PPM | Pemicu: ${labelPemicu}`);
 
-        // Pembersihan otomatis: Hapus log yang umurnya lebih dari 3 hari
         db.run(`DELETE FROM log_iot WHERE timestamp < datetime('now', '-3 days')`);
     }
 
-    // Selalu kirim balik data terkini ke ESP32 sebagai konfirmasi sukses
     res.json({ status: "Success", current: currentState });
 });
 
@@ -114,5 +110,5 @@ app.get('/api/history', (req, res) => {
     });
 });
 
-const PORT = 5000;
-app.listen(PORT, () => console.log(`Server Smart Farm berjalan di port ${PORT}`));
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, '0.0.0.0', () => console.log(`Server Smart Farm berjalan di port ${PORT}`));
